@@ -1,0 +1,108 @@
+// ==UserScript==
+// @name         Leitstellenspiel Timer
+// @namespace    http://tampermonkey.net/
+// @version      1.5
+// @description  Timer für die Spielzeit im Leitstellenspiel
+// @author       Hudnur
+// @match        https://www.leitstellenspiel.de/*
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    let timerInterval; // Timer-Intervall
+    let startTime; // Startzeit des Timers
+    let elapsedTime = 0; // Verstrichene Zeit
+    const history = JSON.parse(localStorage.getItem('playHistory')) || {}; // Spielhistorie aus dem lokalen Speicher
+    const today = new Date().toISOString().split('T')[0]; // Aktuelles Datum
+    let historyVisible = false; // Sichtbarkeit der Historie
+
+    // Erstelle den Timer-Container in der linken oberen Ecke unter dem Logo
+    const menuContainer = document.createElement('div');
+    menuContainer.style.padding = '10px';
+    menuContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    menuContainer.style.color = 'white';
+    menuContainer.style.margin = '10px 0';
+    menuContainer.style.borderRadius = '5px';
+    menuContainer.style.width = '200px'; // Maximale Breite setzen
+    menuContainer.style.position = 'absolute'; // Absolute Positionierung
+    menuContainer.style.top = '60px'; // Position unter dem Logo
+    menuContainer.style.left = '10px'; // Links ausrichten
+
+    const timerDisplay = document.createElement('div'); // Anzeige für die Spielzeit
+    const historyDisplay = document.createElement('div'); // Anzeige für die Historie
+    historyDisplay.style.display = 'none'; // Zuerst versteckt
+
+    // Timer-Anzeige hinzufügen
+    menuContainer.appendChild(timerDisplay);
+
+    // Historie-Anzeige hinzufügen
+    menuContainer.appendChild(historyDisplay);
+
+    // Button zum Umschalten der Historie erstellen und hinzufügen
+    const historyToggleButton = document.createElement('button');
+    historyToggleButton.textContent = 'Zeige Historie'; // Text des Buttons
+    historyToggleButton.style.marginTop = '10px'; // Abstand oben
+    historyToggleButton.onclick = toggleHistory; // Klick-Event
+    menuContainer.appendChild(historyToggleButton);
+
+    // Füge den Menü-Container zum Hauptcontainer hinzu (Selector anpassen)
+    const logoContainer = document.querySelector('.navbar-header'); // Selector für den Logo-Bereich
+    if (logoContainer) {
+        logoContainer.appendChild(menuContainer); // Container hinzufügen
+    }
+
+    // Aktualisiere die Timer-Anzeige
+    function updateTimer() {
+        elapsedTime = Math.floor((Date.now() - startTime) / 1000); // Verstrichene Zeit in Sekunden berechnen
+        timerDisplay.textContent = `Spielzeit: ${elapsedTime} Sekunden`; // Anzeige aktualisieren
+        updatePlayHistory(); // Historie aktualisieren
+    }
+
+    // Timer starten
+    function startTimer() {
+        if (!timerInterval) {
+            startTime = Date.now(); // Startzeit setzen
+            timerInterval = setInterval(updateTimer, 1000); // Timer-Intervall setzen
+        }
+    }
+
+    // Timer stoppen
+    function stopTimer() {
+        clearInterval(timerInterval); // Timer-Intervall löschen
+        timerInterval = null; // Intervall zurücksetzen
+        savePlayTime(); // Spielzeit speichern
+    }
+
+    // Spielzeit im lokalen Speicher speichern
+    function savePlayTime() {
+        const playTime = (elapsedTime + (history[today] || 0)); // Spielzeit berechnen
+        history[today] = playTime; // Historie aktualisieren
+        localStorage.setItem('playHistory', JSON.stringify(history)); // Speichern
+    }
+
+    // Historie-Anzeige aktualisieren
+    function updatePlayHistory() {
+        const totalPlayTime = Object.values(history).reduce((a, b) => a + b, 0); // Gesamtspielzeit berechnen
+        const highestPlayDay = Object.keys(history).reduce((a, b) => history[a] > history[b] ? a : b); // Höchster Spieltag
+
+        historyDisplay.textContent = `Gesamt: ${totalPlayTime} Sekunden\nHöchster Tag: ${highestPlayDay} (${history[highestPlayDay]} Sekunden)`; // Anzeige aktualisieren
+    }
+
+    // Sichtbarkeit der Historie umschalten
+    function toggleHistory() {
+        historyVisible = !historyVisible; // Sichtbarkeit umschalten
+        historyDisplay.style.display = historyVisible ? 'block' : 'none'; // Anzeige anpassen
+        historyToggleButton.textContent = historyVisible ? 'Verstecke Historie' : 'Zeige Historie'; // Button-Text anpassen
+    }
+
+    // Event-Listener für Fokus und Blur im Tab
+    window.addEventListener('focus', startTimer); // Timer starten, wenn der Tab aktiv ist
+    window.addEventListener('blur', stopTimer); // Timer stoppen, wenn der Tab nicht aktiv ist
+
+    // Timer beim Laden der Seite initialisieren
+    startTimer();
+})();
+
+
